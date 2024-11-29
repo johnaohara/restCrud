@@ -1,0 +1,27 @@
+FROM quay.io/quarkus/ubi-quarkus-mandrel-builder-image:23.0-java17 AS build
+COPY --chown=quarkus:quarkus mvnw /code/mvnw
+COPY --chown=quarkus:quarkus .mvn /code/.mvn
+COPY --chown=quarkus:quarkus pom.quarkus.xml /code/pom.xml
+USER quarkus
+WORKDIR /code
+RUN ./mvnw -B org.apache.maven.plugins:maven-dependency-plugin:3.1.2:go-offline
+COPY src /code/src
+RUN ./mvnw package
+
+
+FROM registry.access.redhat.com/ubi9/openjdk-17:1.21
+WORKDIR /work/
+ENV LANGUAGE='en_US:en'
+
+# We make four distinct layers so if there are application changes the library layers can be re-used
+COPY --chown=185 --from=build /code/target/quarkus-app/lib/ /work/lib/
+COPY --chown=185 --from=build /code/target/quarkus-app/*.jar /work/
+COPY --chown=185 --from=build /code/target/quarkus-app/app/ /work/app/
+COPY --chown=185 --from=build /code/target/quarkus-app/quarkus/ /work/quarkus/
+
+EXPOSE 8080
+USER 185
+ENV JAVA_OPTS_APPEND="-Dquarkus.http.host=0.0.0.0 -Djava.util.logging.manager=org.jboss.logmanager.LogManager"
+ENV JAVA_APP_JAR="/work/quarkus-run.jar"
+
+ENTRYPOINT [ "/opt/jboss/container/java/run/run-java.sh", "-Xmx128m","-Dquarkus.thread-pool.max-threads=8","-Dquarkus.thread-pool.core-threads=8","-Dquarkus.http.host=0.0.0.0","-Dquarkus.http.port=9090","-Djava.util.logging.manager=org.jboss.logmanager.LogManager" ]
