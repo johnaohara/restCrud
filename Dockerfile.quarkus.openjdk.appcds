@@ -1,4 +1,4 @@
-FROM quay.io/quarkus/ubi-quarkus-mandrel-builder-image:23.0-java17 AS build
+FROM registry.access.redhat.com/ubi9/openjdk-17:1.21 AS build
 COPY --chown=quarkus:quarkus mvnw /code/mvnw
 COPY --chown=quarkus:quarkus .mvn /code/.mvn
 COPY --chown=quarkus:quarkus pom.quarkus.xml /code/pom.xml
@@ -9,7 +9,7 @@ COPY src /code/src
 RUN ./mvnw package -Dquarkus.package.jar.appcds.enabled=true
 
 
-FROM eclipse-temurin:17.0.13_11-jre-ubi9-minimal
+FROM registry.access.redhat.com/ubi9/openjdk-17:1.21
 WORKDIR /work/
 ENV LANGUAGE='en_US:en'
 
