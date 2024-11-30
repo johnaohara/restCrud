@@ -1,6 +1,28 @@
 #!/bin/bash
 #set -eux
 
+trap shutdown SIGKILL SIGTERM SIGINT
+
+CID=
+ITERATIONS=10
+
+shutdown() {
+  cleanup
+  exit 1  
+}
+
+kill_loop(){
+  pgrep loop.sh | xargs kill -15
+}
+
+cleanup()
+{
+  echo ""
+  echo "Cleaning up resources:"
+  podman kill $CID
+  podman rm $CID
+}
+
 declare -r IMAGE=${1}
 
 echo "Testing ${IMAGE}"
@@ -13,16 +35,23 @@ else
   CPUS="2-${LAST_CPU}"	
 fi
 
+kill_loop
+
 echo "CPUS=${CPUS}"
 
-for i in 1 2 3 4 5 6 7 8 9 10
+for i in $(seq 1 $ITERATIONS)
 do
   sleep 2
+  
+  echo "" > output2
 
   ./loop.sh rest_crud &
+  LOOP_PID=$!
 
   CID=$(podman run --privileged -d --net=host --memory=1g --cpuset-cpus ${CPUS} ${IMAGE})
   sleep 5
+  # Wait for container application to start listening on port 9090, timeout wait after 5s
+  # timeout 5s /bin/bash -c "until /usr/sbin/ss -tnl sport = :9090 | grep -q LISTEN; do sleep 0.1 || exit; done"
   podman logs ${CID}
 
   # Grab First Response
@@ -39,7 +68,6 @@ do
   let sutime=${stopMillis}-${startMillis}
   echo "First Response Time in ms: $sutime"
 
-  #wait to get FP
   sleep 5
   PID=$(ps -ef | grep java | grep -v grep | awk '{print $2}' | tail -1)
   FP=$(ps -o rss= ${PID} | numfmt --from-unit=1024 --to=iec | awk '{gsub("M"," "); print $1}')
@@ -47,7 +75,10 @@ do
   #echo "Footprint in MB:        : $FP"
   echo "Footprint in MB:        : $FP2"
 
-  podman kill $CID
-  podman rm $CID
+  cleanup
+
 done
 
+kill_loop
+
+exit 0
