@@ -9,7 +9,7 @@ COPY src /code/src
 RUN ./mvnw package -Dquarkus.package.jar.appcds.enabled=true
 
 
-FROM eclipse-temurin:17.0.13_11-jre-ubi9-minimal
+FROM quay.io/app-svc-perf/eclipse-temurin:17.0.13_11-jre-ubi9-minimal
 WORKDIR /work/
 ENV LANGUAGE='en_US:en'
 
